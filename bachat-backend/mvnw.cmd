@@ -6,6 +6,7 @@
 @SETLOCAL EnableExtensions EnableDelayedExpansion
 
 SET "DIRNAME=%~dp0"
+IF "%DIRNAME:~-1%"=="\" SET "DIRNAME=%DIRNAME:~0,-1%"
 IF "%DIRNAME%" == "" SET "DIRNAME=."
 
 IF NOT DEFINED JAVA_HOME (
@@ -20,7 +21,7 @@ IF NOT DEFINED JAVA_HOME (
 )
 
 :found_java
-SET "WRAPPER_JAR=%DIRNAME%.mvn\wrapper\maven-wrapper.jar"
+SET "WRAPPER_JAR=%DIRNAME%\.mvn\wrapper\maven-wrapper.jar"
 
 IF NOT EXIST "%WRAPPER_JAR%" (
   ECHO Error: Could not find %WRAPPER_JAR% >&2
