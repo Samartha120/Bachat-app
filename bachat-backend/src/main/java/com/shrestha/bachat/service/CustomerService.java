@@ -121,7 +121,6 @@ public class CustomerService {
 
         int transactionCount = transactionRepository.findByCustomerIdOrderByTransactionDateDesc(customer.getId()).size();
 
-        NumberFormat nprFormat = NumberFormat.getCurrencyInstance(new Locale("en", "NP"));
         String formatted = "NPR " + String.format("%,.2f", outstanding);
 
         return CustomerResponse.builder()

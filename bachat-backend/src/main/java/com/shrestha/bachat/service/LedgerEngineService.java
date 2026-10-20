@@ -117,8 +117,6 @@ public class LedgerEngineService {
 
         switch (bucket) {
             case "TODAY": {
-                // Morning, Afternoon, Evening, Night
-                String[] periods = {"Morning", "Afternoon", "Evening"};
                 BigDecimal inc = BigDecimal.ZERO;
                 BigDecimal exp = BigDecimal.ZERO;
                 for (Transaction t : transactions) {
