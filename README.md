@@ -164,10 +164,13 @@ npm run web
 
 The backend is configured for **Java 17+ (Java 21 LTS verified)**.
 
-```bash
+```powershell
 cd bachat-backend
 
-# Build and run with Maven:
+# Option A: Windows PowerShell using the included Maven Wrapper (Zero setup needed)
+.\mvnw.ps1 spring-boot:run
+
+# Option B: Using globally installed Maven
 mvn spring-boot:run
 ```
 

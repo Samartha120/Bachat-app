@@ -1,0 +1,40 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Maven Start Up Shell script
+# ----------------------------------------------------------------------------
+
+PRG="$0"
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+DIRNAME=`dirname "$PRG"`
+[ -z "$DIRNAME" ] && DIRNAME='.'
+MAVEN_PROJECTBASEDIR="$DIRNAME"
+
+if [ -z "$JAVACMD" ] ; then
+  if [ -n "$JAVA_HOME"  ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+      JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+      JAVACMD="$JAVA_HOME/bin/java"
+    fi
+  else
+    JAVACMD="`which java`"
+  fi
+fi
+
+if [ ! -x "$JAVACMD" ] ; then
+  echo "Error: JAVA_HOME is not defined correctly." >&2
+  echo "  We cannot execute $JAVACMD" >&2
+  exit 1
+fi
+
+WRAPPER_JAR="$DIRNAME/.mvn/wrapper/maven-wrapper.jar"
+exec "$JAVACMD" -Dmaven.multiModuleProjectDirectory="$MAVEN_PROJECTBASEDIR" -jar "$WRAPPER_JAR" "$@"
