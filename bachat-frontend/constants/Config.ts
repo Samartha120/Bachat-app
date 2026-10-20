@@ -8,7 +8,7 @@ export const CONFIG = {
   APP_TAGLINE: 'Enterprise Financial Engine',
   CURRENCY: 'NPR',
   CURRENCY_SYMBOL: 'Rs.',
-  API_BASE_URL: 'http://localhost:8080/api/v1',
+  API_BASE_URL: 'http://localhost:8085/api/v1',
   
   // Corporate Payment Details for Automated Reminders
   PAYMENT_INFO: {

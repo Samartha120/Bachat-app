@@ -174,8 +174,8 @@ cd bachat-backend
 mvn spring-boot:run
 ```
 
-- **Server Port**: `http://localhost:8080`
-- **H2 Console**: `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:bachatdb`, User: `sa`, Password: *empty*)
+- **Server Port**: `http://localhost:8085`
+- **H2 Console**: `http://localhost:8085/h2-console` (JDBC URL: `jdbc:h2:mem:bachatdb`, User: `sa`, Password: *empty*)
 - **Audit Logs File**: Generated under `logs/bachat-audit.log` with rolling daily archives.
 
 ---
