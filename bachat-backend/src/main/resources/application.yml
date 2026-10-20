@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bachat-backend
+  datasource:
+    url: jdbc:h2:mem:bachatdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  jwt:
+    # 256-bit secret key for HMAC-SHA256 signature
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000 # 24 hours
+  company:
+    name: "Shrestha Services"
+    system: "Bachat Core Financial Engine"
+    payment-info:
+      bank-name: "Nabil Bank Limited"
+      account-number: "01001017500124"
+      account-name: "Shrestha Services Pvt. Ltd."
+      esewa-id: "9841234567"
+      khalti-id: "9841234567"
+
+logging:
+  level:
+    root: INFO
+    com.shrestha.bachat: DEBUG
+    org.springframework.security: INFO
