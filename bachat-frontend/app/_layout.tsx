@@ -1,5 +1,6 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, ThemeProvider, Stack } from 'expo-router';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
