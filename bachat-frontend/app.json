@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "bachat-frontend",
-    "slug": "bachat-frontend",
+    "name": "Bachat",
+    "slug": "bachat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bachatfrontend",
+    "scheme": "bachat",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
