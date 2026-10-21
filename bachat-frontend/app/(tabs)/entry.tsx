@@ -1,25 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   TextInput,
-  Pressable,
+  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { HeaderBranding } from '@/components/HeaderBranding';
 import { useLedger } from '@/context/LedgerContext';
 import { CONFIG } from '@/constants/Config';
 import { Palette } from '@/constants/Colors';
 
+const PAYMENT_MODES = [
+  { id: 'CASH', label: 'Cash (नगद)', icon: 'cash-outline' },
+  { id: 'BANK', label: 'Nabil Bank', icon: 'business-outline' },
+  { id: 'ESEWA', label: 'eSewa', icon: 'phone-portrait-outline' },
+  { id: 'KHALTI', label: 'Khalti', icon: 'wallet-outline' },
+  { id: 'CHEQUE', label: 'Cheque', icon: 'document-text-outline' },
+];
+
 export default function FastDataEntryScreen() {
+  const params = useLocalSearchParams<{ preselectedType?: string }>();
   const { addTransaction, customers } = useLedger();
 
   // Form State
@@ -27,26 +37,32 @@ export default function FastDataEntryScreen() {
   const [amountStr, setAmountStr] = useState('');
   const [category, setCategory] = useState(CONFIG.DEFAULT_CATEGORIES.INCOME[0]);
   const [customCategory, setCustomCategory] = useState('');
+  const [paymentMode, setPaymentMode] = useState<string>('BANK');
   const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(undefined);
   const [dueDateDays, setDueDateDays] = useState<number>(7);
-  const [customDueDate, setCustomDueDate] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Active categories based on selected Type
+  useEffect(() => {
+    if (params.preselectedType === 'EXPENSE') {
+      setType('EXPENSE');
+      setCategory(CONFIG.DEFAULT_CATEGORIES.EXPENSE[0]);
+    } else if (params.preselectedType === 'INCOME') {
+      setType('INCOME');
+      setCategory(CONFIG.DEFAULT_CATEGORIES.INCOME[0]);
+    }
+  }, [params.preselectedType]);
+
   const categoryList =
     type === 'INCOME'
       ? CONFIG.DEFAULT_CATEGORIES.INCOME
       : CONFIG.DEFAULT_CATEGORIES.EXPENSE;
 
-  // Format today's date
   const today = new Date().toISOString().split('T')[0];
 
-  // Compute calculated due date
   const computeDueDate = () => {
-    if (customDueDate) return customDueDate;
     const d = new Date();
     d.setDate(d.getDate() + dueDateDays);
     return d.toISOString().split('T')[0];
@@ -61,34 +77,41 @@ export default function FastDataEntryScreen() {
     );
   };
 
+  const handleAddQuickAmount = (increment: number) => {
+    const current = parseFloat(amountStr.replace(/[^0-9.]/g, '')) || 0;
+    const next = current + increment;
+    setAmountStr(next.toString());
+  };
+
   const handleSubmit = async () => {
     const rawAmount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
     if (isNaN(rawAmount) || rawAmount <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid monetary amount greater than 0.');
+      Alert.alert('Validation Error', 'Please enter a valid transaction amount.');
       return;
     }
 
     const finalCategory = customCategory.trim() || category;
-    if (!finalCategory) {
-      Alert.alert('Validation Error', 'Please select or enter a transaction category.');
-      return;
-    }
 
-    // Conditional Form Logic Check for Pending Status
-    if (status === 'PENDING') {
-      if (!selectedCustomerId) {
-        Alert.alert(
-          'Customer Required',
-          'For pending transactions / receivables, a client or vendor mapping is strictly required.'
-        );
-        return;
-      }
+    if (status === 'PENDING' && !selectedCustomerId) {
+      Alert.alert(
+        'Party Required',
+        'For pending receivables / payables, a party must be selected from the Khata directory.'
+      );
+      return;
     }
 
     setIsSubmitting(true);
 
     try {
       const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+
+      const refNote = [
+        paymentRef ? `Ref: ${paymentRef}` : '',
+        `Mode: ${paymentMode}`,
+        notes ? notes.trim() : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
 
       const success = await addTransaction({
         amount: rawAmount,
@@ -101,21 +124,21 @@ export default function FastDataEntryScreen() {
         customerName: selectedCustomer ? selectedCustomer.name : undefined,
         customerPhone: selectedCustomer ? selectedCustomer.phoneNumber : undefined,
         customerEmail: selectedCustomer ? selectedCustomer.corporateEmail : undefined,
-        notes: notes.trim() || undefined,
-        paymentReference: paymentRef.trim() || undefined,
+        notes: refNote || undefined,
+        paymentReference: paymentRef.trim() || `${paymentMode}-${Date.now().toString().slice(-6)}`,
       });
 
       if (success) {
         Alert.alert(
-          'Transaction Logged',
-          `Successfully recorded ${type} of NPR ${rawAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`,
+          'Karobar Recorded',
+          `Successfully saved ${type === 'INCOME' ? 'रकम आयो' : 'रकम गयो'} of ${CONFIG.CURRENCY_SYMBOL} ${rawAmount.toLocaleString('en-IN')}.`,
           [
             {
-              text: 'View Ledger',
+              text: 'View Daybook',
               onPress: () => router.push('/(tabs)'),
             },
             {
-              text: 'New Entry',
+              text: 'Record Another',
               onPress: () => {
                 setAmountStr('');
                 setNotes('');
@@ -127,7 +150,7 @@ export default function FastDataEntryScreen() {
         );
       }
     } catch (e: any) {
-      Alert.alert('Submission Failed', e.message || 'An error occurred while logging transaction.');
+      Alert.alert('Submission Error', e.message || 'Failed to save transaction.');
     } finally {
       setIsSubmitting(false);
     }
@@ -146,16 +169,17 @@ export default function FastDataEntryScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <HeaderBranding subtitle="Rapid Financial Data Entry System" />
+          <HeaderBranding subtitle="नयाँ कारोबार (Record Transaction)" />
 
-          {/* Type Toggle: Inflow vs Outflow */}
+          {/* Inflow vs Outflow Big Tactile Selector */}
           <View style={styles.typeSelectorContainer}>
-            <Pressable
+            <TouchableOpacity
               style={[
                 styles.typeBtn,
                 type === 'INCOME' && styles.typeBtnIncomeActive,
               ]}
               onPress={() => handleTypeChange('INCOME')}
+              activeOpacity={0.8}
             >
               <Ionicons
                 name="arrow-down-circle"
@@ -169,16 +193,17 @@ export default function FastDataEntryScreen() {
                   type === 'INCOME' && styles.typeBtnTextActive,
                 ]}
               >
-                Inflow (Income)
+                + रकम आयो (Inflow)
               </Text>
-            </Pressable>
+            </TouchableOpacity>
 
-            <Pressable
+            <TouchableOpacity
               style={[
                 styles.typeBtn,
                 type === 'EXPENSE' && styles.typeBtnExpenseActive,
               ]}
               onPress={() => handleTypeChange('EXPENSE')}
+              activeOpacity={0.8}
             >
               <Ionicons
                 name="arrow-up-circle"
@@ -192,83 +217,152 @@ export default function FastDataEntryScreen() {
                   type === 'EXPENSE' && styles.typeBtnTextActive,
                 ]}
               >
-                Outflow (Expense)
+                - रकम गयो (Outflow)
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
-          {/* Amount Large Input */}
+          {/* Amount Card with Calculator-Style Increments */}
           <View style={styles.amountInputCard}>
-            <Text style={styles.fieldLabel}>TRANSACTION AMOUNT ({CONFIG.CURRENCY})</Text>
+            <Text style={styles.fieldLabel}>TRANSACTION AMOUNT (रकम)</Text>
             <View style={styles.amountInputRow}>
               <Text style={styles.currencyPrefix}>{CONFIG.CURRENCY_SYMBOL}</Text>
               <TextInput
                 style={styles.amountInput}
-                placeholder="0.00"
+                placeholder="0"
                 placeholderTextColor="#334155"
-                keyboardType="decimal-pad"
+                keyboardType="numeric"
                 value={amountStr}
                 onChangeText={setAmountStr}
-                autoFocus
               />
             </View>
 
-            {/* Fast Quick Amount Chips */}
+            {/* Quick Amount Chips */}
             <View style={styles.quickAmountRow}>
-              {[5000, 15000, 50000, 100000].map(val => (
-                <Pressable
+              {[1000, 5000, 10000, 50000, 100000].map(val => (
+                <TouchableOpacity
                   key={val}
                   style={styles.quickAmountChip}
-                  onPress={() => setAmountStr(val.toString())}
+                  onPress={() => handleAddQuickAmount(val)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.quickAmountText}>+{val >= 1000 ? `${val / 1000}k` : val}</Text>
-                </Pressable>
+                  <Text style={styles.quickAmountText}>
+                    +{val >= 100000 ? '1L' : val >= 1000 ? `${val / 1000}k` : val}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Category Picker */}
+          {/* Party (Khata) Selection */}
           <View style={styles.formSection}>
-            <Text style={styles.fieldLabel}>CATEGORY PRESET</Text>
-            <View style={styles.chipGrid}>
-              {categoryList.map(cat => {
-                const isSelected = category === cat && !customCategory;
+            <View style={styles.partyHeaderRow}>
+              <Text style={styles.fieldLabel}>ASSIGN PARTY / CLIENT (पार्टी)</Text>
+              {selectedCustomerId && (
+                <TouchableOpacity onPress={() => setSelectedCustomerId(undefined)}>
+                  <Text style={styles.clearPartyText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.customerScroll}>
+              <TouchableOpacity
+                style={[
+                  styles.customerChip,
+                  !selectedCustomerId && styles.customerChipSelected,
+                ]}
+                onPress={() => setSelectedCustomerId(undefined)}
+              >
+                <Text
+                  style={[
+                    styles.customerChipText,
+                    !selectedCustomerId && styles.customerChipTextSelected,
+                  ]}
+                >
+                  General Office
+                </Text>
+              </TouchableOpacity>
+
+              {customers
+                .filter(c => c.active)
+                .map(c => {
+                  const isSelected = selectedCustomerId === c.id;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.customerChip,
+                        isSelected && styles.customerChipSelected,
+                      ]}
+                      onPress={() => setSelectedCustomerId(c.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={12}
+                        color={isSelected ? '#F8FAFC' : '#64748B'}
+                        style={{ marginRight: 5 }}
+                      />
+                      <Text
+                        style={[
+                          styles.customerChipText,
+                          isSelected && styles.customerChipTextSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+          </View>
+
+          {/* Payment Mode (Cash / Bank / eSewa / Khalti) */}
+          <View style={styles.formSection}>
+            <Text style={styles.fieldLabel}>PAYMENT MODE (भुक्तानी माध्यम)</Text>
+            <View style={styles.paymentModesRow}>
+              {PAYMENT_MODES.map(mode => {
+                const isSelected = paymentMode === mode.id;
                 return (
-                  <Pressable
-                    key={cat}
+                  <TouchableOpacity
+                    key={mode.id}
                     style={[
-                      styles.categoryChip,
-                      isSelected && (type === 'INCOME' ? styles.chipActiveIncome : styles.chipActiveExpense),
+                      styles.modeChip,
+                      isSelected && styles.modeChipSelected,
                     ]}
-                    onPress={() => {
-                      setCategory(cat);
-                      setCustomCategory('');
-                    }}
+                    onPress={() => setPaymentMode(mode.id)}
+                    activeOpacity={0.7}
                   >
+                    <Ionicons
+                      name={mode.icon as any}
+                      size={14}
+                      color={isSelected ? '#10B981' : '#64748B'}
+                    />
                     <Text
                       style={[
-                        styles.categoryChipText,
-                        isSelected && styles.categoryChipTextActive,
+                        styles.modeChipText,
+                        isSelected && styles.modeChipTextSelected,
                       ]}
                     >
-                      {cat}
+                      {mode.label}
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           </View>
 
-          {/* Settlement Status Toggle: Paid vs Pending */}
+          {/* Settlement Status (Paid vs Due / Credit) */}
           <View style={styles.formSection}>
-            <Text style={styles.fieldLabel}>SETTLEMENT STATUS</Text>
+            <Text style={styles.fieldLabel}>TRANSACTION STATUS (स्थिति)</Text>
             <View style={styles.statusToggleRow}>
-              <Pressable
+              <TouchableOpacity
                 style={[
                   styles.statusToggleBtn,
                   status === 'PAID' && styles.statusPaidActive,
                 ]}
                 onPress={() => setStatus('PAID')}
+                activeOpacity={0.8}
               >
                 <Ionicons
                   name="checkmark-circle"
@@ -282,16 +376,17 @@ export default function FastDataEntryScreen() {
                     status === 'PAID' && styles.statusPaidTextActive,
                   ]}
                 >
-                  Settled / Paid Immediately
+                  चुक्ता भयो (Paid Immediately)
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable
+              <TouchableOpacity
                 style={[
                   styles.statusToggleBtn,
                   status === 'PENDING' && styles.statusPendingActive,
                 ]}
                 onPress={() => setStatus('PENDING')}
+                activeOpacity={0.8}
               >
                 <Ionicons
                   name="time"
@@ -305,72 +400,28 @@ export default function FastDataEntryScreen() {
                     status === 'PENDING' && styles.statusPendingTextActive,
                   ]}
                 >
-                  Pending Receivable / Payable
+                  उधारो / बाँकी (Credit / Due)
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* CONDITIONAL LOGIC: If Pending, require Customer & Due Date */}
+          {/* If Pending / Credit, Due Date Options */}
           {status === 'PENDING' && (
             <View style={styles.conditionalCard}>
-              <View style={styles.conditionalHeader}>
-                <Ionicons name="alert-circle-outline" size={16} color={Palette.amber} />
-                <Text style={styles.conditionalTitle}>Receivable Tracking Requirements</Text>
-              </View>
-
-              {/* Customer Selector */}
-              <Text style={styles.conditionalFieldLabel}>ASSIGN CLIENT / VENDOR *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.customerScroll}>
-                {customers
-                  .filter(c => c.active)
-                  .map(c => {
-                    const isSelected = selectedCustomerId === c.id;
-                    return (
-                      <Pressable
-                        key={c.id}
-                        style={[
-                          styles.customerChip,
-                          isSelected && styles.customerChipSelected,
-                        ]}
-                        onPress={() => setSelectedCustomerId(c.id)}
-                      >
-                        <Ionicons
-                          name="business"
-                          size={14}
-                          color={isSelected ? '#F8FAFC' : '#64748B'}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text
-                          style={[
-                            styles.customerChipText,
-                            isSelected && styles.customerChipTextSelected,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {c.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-              </ScrollView>
-
-              {/* Due Date Options */}
-              <Text style={[styles.conditionalFieldLabel, { marginTop: 12 }]}>
-                PAYMENT DUE WINDOW: {computeDueDate()}
+              <Text style={styles.conditionalFieldLabel}>
+                DUE DATE (भाखा मिति): {computeDueDate()}
               </Text>
               <View style={styles.dueDaysRow}>
                 {[3, 7, 15, 30].map(days => (
-                  <Pressable
+                  <TouchableOpacity
                     key={days}
                     style={[
                       styles.dueDayChip,
                       dueDateDays === days && styles.dueDayChipActive,
                     ]}
-                    onPress={() => {
-                      setDueDateDays(days);
-                      setCustomDueDate('');
-                    }}
+                    onPress={() => setDueDateDays(days)}
+                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
@@ -380,18 +431,59 @@ export default function FastDataEntryScreen() {
                     >
                       +{days} Days
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 ))}
               </View>
             </View>
           )}
 
-          {/* Notes & Memo */}
+          {/* Category Presets */}
           <View style={styles.formSection}>
-            <Text style={styles.fieldLabel}>MEMO / AUDIT NOTES</Text>
+            <Text style={styles.fieldLabel}>CATEGORY PRESET (शिर्षक)</Text>
+            <View style={styles.chipGrid}>
+              {categoryList.map(cat => {
+                const isSelected = category === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      isSelected && (type === 'INCOME' ? styles.chipActiveIncome : styles.chipActiveExpense),
+                    ]}
+                    onPress={() => setCategory(cat)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Notes & Voucher Reference */}
+          <View style={styles.formSection}>
+            <Text style={styles.fieldLabel}>BILL / VOUCHER NUMBER (बिल / भौचर नं.)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. INV-2026-104 or CASH-REC-01"
+              placeholderTextColor="#64748B"
+              value={paymentRef}
+              onChangeText={setPaymentRef}
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.fieldLabel}>MEMO / REMARKS (कैफियत)</Text>
             <TextInput
               style={styles.notesInput}
-              placeholder="e.g. Monthly cloud hosting, invoice #092 milestone payment..."
+              placeholder="e.g. Final installment, hardware procurement fee..."
               placeholderTextColor="#64748B"
               value={notes}
               onChangeText={setNotes}
@@ -400,33 +492,32 @@ export default function FastDataEntryScreen() {
             />
           </View>
 
-          {/* Payment Reference */}
-          <View style={styles.formSection}>
-            <Text style={styles.fieldLabel}>PAYMENT REFERENCE (VOUCHER / BANK REF)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. NABIL-TX-99021, CHEQUE-441..."
-              placeholderTextColor="#64748B"
-              value={paymentRef}
-              onChangeText={setPaymentRef}
-            />
-          </View>
-
-          {/* Submit Action Button */}
-          <Pressable
-            style={[
-              styles.submitBtn,
-              type === 'INCOME' ? styles.submitBtnIncome : styles.submitBtnExpense,
-              isSubmitting && { opacity: 0.6 },
-            ]}
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={styles.submitBtn}
             onPress={handleSubmit}
             disabled={isSubmitting}
+            activeOpacity={0.8}
           >
-            <Ionicons name="save-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.submitBtnText}>
-              {isSubmitting ? 'Logging to Bachat Engine...' : 'Commit Transaction to Ledger'}
-            </Text>
-          </Pressable>
+            <LinearGradient
+              colors={
+                type === 'INCOME'
+                  ? ['#10B981', '#059669']
+                  : ['#EF4444', '#DC2626']
+              }
+              style={styles.submitGradient}
+            >
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={20}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.submitBtnText}>
+                {isSubmitting ? 'Saving to Bachat...' : 'Save Karobar Entry (सुरक्षित गर्नुहोस्)'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -436,7 +527,7 @@ export default function FastDataEntryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080C15',
+    backgroundColor: '#06090F',
   },
   container: {
     flex: 1,
@@ -449,8 +540,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 10,
     backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 3,
+    borderRadius: 14,
+    padding: 4,
     borderWidth: 1,
     borderColor: '#1E293B',
   },
@@ -459,36 +550,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 9,
+    paddingVertical: 11,
+    borderRadius: 10,
   },
   typeBtnIncomeActive: {
-    backgroundColor: Palette.emeraldDark,
+    backgroundColor: '#10B981',
   },
   typeBtnExpenseActive: {
-    backgroundColor: '#B91C1C',
+    backgroundColor: '#EF4444',
   },
   typeBtnText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#64748B',
   },
   typeBtnTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
   },
   amountInputCard: {
-    backgroundColor: Palette.cardDark,
-    borderRadius: 14,
+    backgroundColor: '#0D1322',
+    borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 6,
     borderWidth: 1,
-    borderColor: Palette.borderDark,
+    borderColor: '#1E293B',
   },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     color: '#64748B',
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -506,7 +596,7 @@ const styles = StyleSheet.create({
   amountInput: {
     flex: 1,
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#F8FAFC',
     padding: 0,
   },
@@ -519,15 +609,16 @@ const styles = StyleSheet.create({
     borderTopColor: '#1E293B',
   },
   quickAmountChip: {
+    flex: 1,
     backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#1E293B',
+    alignItems: 'center',
   },
   quickAmountText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#94A3B8',
   },
@@ -535,34 +626,72 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 8,
   },
-  chipGrid: {
+  partyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clearPartyText: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  customerScroll: {
+    flexDirection: 'row',
+    marginVertical: 4,
+  },
+  customerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0D1322',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
+    maxWidth: 200,
+  },
+  customerChipSelected: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+  },
+  customerChipText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  customerChipTextSelected: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  paymentModesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  categoryChip: {
-    backgroundColor: '#111726',
+  modeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0D1322',
     borderWidth: 1,
     borderColor: '#1E293B',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 8,
+    gap: 6,
   },
-  chipActiveIncome: {
-    backgroundColor: Palette.emeraldMuted,
-    borderColor: Palette.emerald,
+  modeChipSelected: {
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  chipActiveExpense: {
-    backgroundColor: Palette.roseMuted,
-    borderColor: Palette.rose,
-  },
-  categoryChipText: {
-    fontSize: 12,
+  modeChipText: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
   },
-  categoryChipTextActive: {
-    color: '#F8FAFC',
+  modeChipTextSelected: {
+    color: '#10B981',
     fontWeight: '700',
   },
   statusToggleRow: {
@@ -571,22 +700,22 @@ const styles = StyleSheet.create({
   statusToggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111726',
+    backgroundColor: '#0D1322',
     borderWidth: 1,
     borderColor: '#1E293B',
     borderRadius: 10,
-    padding: 12,
+    padding: 11,
   },
   statusPaidActive: {
     borderColor: Palette.emerald,
-    backgroundColor: Palette.emeraldMuted,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   statusPendingActive: {
     borderColor: Palette.amber,
-    backgroundColor: Palette.amberMuted,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
   },
   statusToggleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -599,81 +728,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   conditionalCard: {
-    backgroundColor: '#151C2C',
+    backgroundColor: '#0D1322',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  conditionalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  conditionalTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FCD34D',
+    borderColor: 'rgba(245, 158, 11, 0.25)',
   },
   conditionalFieldLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#FCD34D',
     letterSpacing: 0.5,
     marginBottom: 6,
-  },
-  customerScroll: {
-    flexDirection: 'row',
-    marginVertical: 4,
-  },
-  customerChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
-    maxWidth: 240,
-  },
-  customerChipSelected: {
-    backgroundColor: Palette.indigo,
-    borderColor: '#818CF8',
-  },
-  customerChipText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  customerChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   dueDaysRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
   },
   dueDayChip: {
     flex: 1,
     backgroundColor: '#0F172A',
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#1E293B',
   },
   dueDayChipActive: {
-    backgroundColor: Palette.amberMuted,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderColor: Palette.amber,
   },
   dueDayText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -681,49 +769,76 @@ const styles = StyleSheet.create({
     color: Palette.amber,
     fontWeight: '700',
   },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    backgroundColor: '#0D1322',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  chipActiveIncome: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: Palette.emerald,
+  },
+  chipActiveExpense: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: Palette.rose,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  categoryChipTextActive: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+  },
   textInput: {
-    backgroundColor: '#111726',
+    backgroundColor: '#0D1322',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderWidth: 1,
     borderColor: '#1E293B',
     color: '#F8FAFC',
     fontSize: 13,
   },
   notesInput: {
-    backgroundColor: '#111726',
+    backgroundColor: '#0D1322',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderWidth: 1,
     borderColor: '#1E293B',
     color: '#F8FAFC',
     fontSize: 13,
-    minHeight: 50,
+    minHeight: 46,
   },
   submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    overflow: 'hidden',
     marginHorizontal: 16,
     marginTop: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 3,
   },
-  submitBtnIncome: {
-    backgroundColor: Palette.emeraldDark,
-  },
-  submitBtnExpense: {
-    backgroundColor: '#B91C1C',
+  submitGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
   },
   submitBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
 });

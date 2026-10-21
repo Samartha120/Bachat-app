@@ -44,6 +44,8 @@ export const storage = {
   },
 };
 
+const PIN_KEY = 'bachat_security_pin';
+
 export const authStorage = {
   saveToken: (token: string) => storage.setItem(TOKEN_KEY, token),
   getToken: () => storage.getItem(TOKEN_KEY),
@@ -55,6 +57,9 @@ export const authStorage = {
     return raw ? JSON.parse(raw) : null;
   },
   removeUser: () => storage.removeItem(USER_KEY),
+
+  savePin: (pin: string) => storage.setItem(PIN_KEY, pin),
+  getPin: () => storage.getItem(PIN_KEY),
 };
 
 export async function apiRequest<T>(

@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Palette } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
-import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface HeaderBrandingProps {
   subtitle?: string;
@@ -14,53 +14,69 @@ export const HeaderBranding: React.FC<HeaderBrandingProps> = ({
   subtitle,
   showRoleBadge = true,
 }) => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, lockApp } = useAuth();
 
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
         <View style={styles.brandGroup}>
-          <View style={styles.logoBadge}>
-            <Ionicons name="wallet" size={18} color="#FFFFFF" />
-          </View>
+          <LinearGradient
+            colors={['#10B981', '#047857']}
+            style={styles.logoBadge}
+          >
+            <Ionicons name="wallet" size={17} color="#FFFFFF" />
+          </LinearGradient>
           <View>
             <View style={styles.nameRow}>
               <Text style={styles.brandTitle}>Bachat</Text>
-              <Text style={styles.brandSeparator}>|</Text>
+              <Text style={styles.brandSeparator}>•</Text>
               <Text style={styles.companyName}>Shrestha Services</Text>
             </View>
             {subtitle ? (
               <Text style={styles.subtitle}>{subtitle}</Text>
             ) : (
-              <Text style={styles.subtitle}>Executive Financial Suite</Text>
+              <Text style={styles.subtitle}>
+                {user?.fullName ? `${user.fullName}` : 'Khata & Digital Cashbook'}
+              </Text>
             )}
           </View>
         </View>
 
-        {showRoleBadge && (
-          <Pressable
-            style={[
-              styles.roleBadge,
-              { backgroundColor: isAdmin ? Palette.indigoMuted : Palette.amberMuted },
-            ]}
-            onPress={() => router.push('/(tabs)/settings')}
-          >
+        <View style={styles.actionsRight}>
+          {showRoleBadge && (
             <View
               style={[
-                styles.roleDot,
-                { backgroundColor: isAdmin ? Palette.indigo : Palette.amber },
-              ]}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                { color: isAdmin ? Palette.indigo : Palette.amber },
+                styles.roleBadge,
+                { backgroundColor: isAdmin ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)' },
               ]}
             >
-              {isAdmin ? 'OFFICE ADMIN' : 'STAFF USER'}
-            </Text>
-          </Pressable>
-        )}
+              <View
+                style={[
+                  styles.roleDot,
+                  { backgroundColor: isAdmin ? '#10B981' : '#F59E0B' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  { color: isAdmin ? '#10B981' : '#F59E0B' },
+                ]}
+              >
+                {isAdmin ? 'HANDLER' : 'STAFF'}
+              </Text>
+            </View>
+          )}
+
+          {/* Instant 1-Tap Lock Button */}
+          <TouchableOpacity
+            style={styles.lockButton}
+            onPress={lockApp}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="lock-closed" size={15} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -83,18 +99,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoBadge: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowColor: '#10B981',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 3,
   },
   nameRow: {
@@ -109,12 +122,11 @@ const styles = StyleSheet.create({
   },
   brandSeparator: {
     marginHorizontal: 6,
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: '300',
+    color: '#10B981',
+    fontSize: 10,
   },
   companyName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -123,13 +135,17 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
     fontWeight: '500',
-    letterSpacing: 0.2,
+  },
+  actionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3.5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -141,8 +157,18 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   roleText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  lockButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
