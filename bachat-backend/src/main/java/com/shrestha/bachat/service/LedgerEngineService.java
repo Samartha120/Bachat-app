@@ -110,6 +110,7 @@ public class LedgerEngineService {
                 .build();
     }
 
+    @SuppressWarnings("null")
     private List<TimeBucketChartPoint> generateChartPoints(
             String bucket, LocalDate startDate, LocalDate endDate, List<Transaction> transactions) {
 

@@ -29,6 +29,7 @@ public class TransactionService {
     private final AuditLogService auditLogService;
 
     @Transactional
+    @SuppressWarnings("null")
     public TransactionResponse createTransaction(TransactionRequest request, String currentUsername) {
         User user = userRepository.findByUsername(currentUsername).orElse(null);
 
@@ -73,6 +74,7 @@ public class TransactionService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public TransactionResponse updateTransaction(Long id, TransactionRequest request, String currentUsername) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
@@ -111,6 +113,7 @@ public class TransactionService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public TransactionResponse markAsPaid(Long id, String currentUsername) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
@@ -130,6 +133,7 @@ public class TransactionService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public void deleteTransaction(Long id, String currentUsername) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
@@ -145,6 +149,7 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public TransactionResponse getTransactionById(Long id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));

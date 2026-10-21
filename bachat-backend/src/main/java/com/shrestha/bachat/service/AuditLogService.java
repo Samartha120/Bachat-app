@@ -23,6 +23,7 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
 
     @Transactional
+    @SuppressWarnings("null")
     public void recordAction(String username, String action, String targetEntity, String details) {
         String ipAddress = MDC.get("ip");
         if (ipAddress == null || ipAddress.isBlank()) {

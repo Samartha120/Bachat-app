@@ -40,6 +40,7 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public CustomerResponse getCustomerById(Long id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
@@ -47,6 +48,7 @@ public class CustomerService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public CustomerResponse createCustomer(CustomerRequest request, String currentUsername) {
         Customer customer = Customer.builder()
                 .name(request.getName().trim())
@@ -70,6 +72,7 @@ public class CustomerService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public CustomerResponse updateCustomer(Long id, CustomerRequest request, String currentUsername) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
@@ -94,6 +97,7 @@ public class CustomerService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public CustomerResponse toggleCustomerStatus(Long id, String currentUsername) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));

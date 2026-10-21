@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,6 +7,8 @@ import {
   RefreshControl,
   TextInput,
   TouchableOpacity,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +22,8 @@ import { TransactionRow } from '@/components/TransactionRow';
 import { useLedger } from '@/context/LedgerContext';
 import { Palette } from '@/constants/Colors';
 import { CONFIG } from '@/constants/Config';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LedgerScreen() {
   const {
@@ -38,6 +42,25 @@ export default function LedgerScreen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE' | 'DUE'>('ALL');
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.96)).current;
+  const cashInAnim = useRef(new Animated.Value(0)).current;
+  const cashOutAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(100, [
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
+      ]),
+      Animated.timing(cashInAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(cashOutAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   const formatNpr = (val: number) => {
     return `${CONFIG.CURRENCY_SYMBOL} ${Math.abs(val).toLocaleString('en-IN')}`;
@@ -72,13 +95,13 @@ export default function LedgerScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Executive Header with instant lock */}
-        <HeaderBranding subtitle="Karobar & Cashbook Engine" />
+        {/* Executive Header */}
+        <HeaderBranding subtitle="Financial Dashboard" />
 
-        {/* Karobar Time Period Tabs (Day / Week / Month / Year) */}
+        {/* Time Period Tabs */}
         <TimeBucketFilter selected={timeBucket} onSelect={setTimeBucket} />
 
-        {/* Overdue Debt Alert Banner */}
+        {/* Overdue Alert */}
         {overdueTransactions.length > 0 && (
           <TouchableOpacity
             style={styles.overdueBanner}
@@ -86,35 +109,52 @@ export default function LedgerScreen() {
             activeOpacity={0.8}
           >
             <View style={styles.overdueIconWrap}>
-              <Ionicons name="alert-circle" size={18} color="#FFFFFF" />
+              <Ionicons name="alert-circle" size={16} color="#FFFFFF" />
             </View>
             <View style={styles.overdueTextWrap}>
               <Text style={styles.overdueTitle}>
-                {overdueTransactions.length} Overdue Receivables Alert (लिनुपर्ने बाँकी)
+                {overdueTransactions.length} Overdue Payment{overdueTransactions.length > 1 ? 's' : ''}
               </Text>
               <Text style={styles.overdueSubtitle}>
-                Clients have overdue bills past payment date. Tap to send reminders.
+                Tap to review and send reminders
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#EF4444" />
+            <Ionicons name="chevron-forward" size={16} color="#EF4444" />
           </TouchableOpacity>
         )}
 
-        {/* Hero Karobar Cashbook Card */}
-        <View style={styles.heroCardContainer}>
+        {/* Hero Balance Card */}
+        <Animated.View
+          style={[
+            styles.heroCardContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+            },
+          ]}
+        >
           <LinearGradient
-            colors={['#101C33', '#0C1322', '#080D1A']}
+            colors={['#0E1A2E', '#0A1120', '#070C17']}
             style={styles.heroCardGradient}
           >
             <View style={styles.heroTopRow}>
-              <View>
-                <Text style={styles.heroSubtitle}>NET CASH BALANCE • कुल बाँकी नगद</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroSubtitle}>NET CASH BALANCE</Text>
                 <Text style={styles.heroMainAmount}>
                   {netMargin >= 0 ? '' : '- '}{formatNpr(netMargin)}
                 </Text>
               </View>
 
-              <View style={styles.netStatusPill}>
+              <View
+                style={[
+                  styles.netStatusPill,
+                  {
+                    backgroundColor: netMargin >= 0
+                      ? 'rgba(16, 185, 129, 0.12)'
+                      : 'rgba(244, 63, 94, 0.12)',
+                  },
+                ]}
+              >
                 <Ionicons
                   name={netMargin >= 0 ? 'trending-up' : 'trending-down'}
                   size={14}
@@ -133,36 +173,34 @@ export default function LedgerScreen() {
 
             <View style={styles.heroDivider} />
 
-            {/* Inflow vs Outflow Mini Counters */}
+            {/* Inflow vs Outflow */}
             <View style={styles.heroFlowRow}>
-              {/* Cash In */}
-              <View style={styles.flowMetric}>
+              <Animated.View style={[styles.flowMetric, { opacity: cashInAnim }]}>
                 <View style={styles.flowIconIn}>
                   <Ionicons name="arrow-down" size={14} color="#10B981" />
                 </View>
-                <View>
-                  <Text style={styles.flowLabel}>रकम आयो (Cash In)</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.flowLabel}>Cash In</Text>
                   <Text style={styles.flowAmountIn}>+ {formatNpr(totalIncome)}</Text>
                 </View>
-              </View>
+              </Animated.View>
 
               <View style={styles.flowVerticalDivider} />
 
-              {/* Cash Out */}
-              <View style={styles.flowMetric}>
+              <Animated.View style={[styles.flowMetric, { opacity: cashOutAnim }]}>
                 <View style={styles.flowIconOut}>
                   <Ionicons name="arrow-up" size={14} color="#F43F5E" />
                 </View>
-                <View>
-                  <Text style={styles.flowLabel}>रकम गयो (Cash Out)</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.flowLabel}>Cash Out</Text>
                   <Text style={styles.flowAmountOut}>- {formatNpr(totalExpenses)}</Text>
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </LinearGradient>
-        </View>
+        </Animated.View>
 
-        {/* Karobar Dual Quick-Action Buttons */}
+        {/* Quick Action Buttons */}
         <View style={styles.quickActionRow}>
           <TouchableOpacity
             style={styles.gotCashButton}
@@ -172,9 +210,11 @@ export default function LedgerScreen() {
             <LinearGradient
               colors={['#10B981', '#059669']}
               style={styles.actionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
               <Ionicons name="arrow-down-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>+ रकम आयो (Inflow)</Text>
+              <Text style={styles.actionButtonText}>Record Income</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -186,14 +226,16 @@ export default function LedgerScreen() {
             <LinearGradient
               colors={['#EF4444', '#DC2626']}
               style={styles.actionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
               <Ionicons name="arrow-up-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>- रकम गयो (Outflow)</Text>
+              <Text style={styles.actionButtonText}>Record Expense</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {/* Receivables & Khata Snapshot Card */}
+        {/* Pending Receivables Card */}
         <TouchableOpacity
           style={styles.receivableQuickCard}
           onPress={() => router.push('/(tabs)/receivables')}
@@ -201,38 +243,38 @@ export default function LedgerScreen() {
         >
           <View style={styles.rqLeft}>
             <View style={styles.rqIconWrap}>
-              <Ionicons name="time" size={18} color="#F59E0B" />
+              <Ionicons name="time" size={16} color="#F59E0B" />
             </View>
-            <View>
-              <Text style={styles.rqTitle}>Pending Credit • लिनुपर्ने बाँकी रकम</Text>
-              <Text style={styles.rqSubtitle}>
-                Total uncollected invoices across clients
+            <View style={{ flexShrink: 1 }}>
+              <Text style={styles.rqTitle} numberOfLines={1}>Pending Receivables</Text>
+              <Text style={styles.rqSubtitle} numberOfLines={1}>
+                Uncollected invoices across clients
               </Text>
             </View>
           </View>
           <View style={styles.rqRight}>
             <Text style={styles.rqAmount}>{formatNpr(agingReceivables)}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#64748B" />
+            <Ionicons name="chevron-forward" size={14} color="#64748B" />
           </View>
         </TouchableOpacity>
 
-        {/* Interactive Cash Flow Chart */}
+        {/* Cash Flow Chart */}
         <FinancialChart
           incomeData={chartData.incomeData}
           expenseData={chartData.expenseData}
-          title="Cash Flow Dynamics"
+          title="Cash Flow Overview"
         />
 
-        {/* Karobar Daybook Entries Header */}
+        {/* Daybook Section Header */}
         <View style={styles.ledgerHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>दैनिक कारोबार (Daybook)</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Recent Transactions</Text>
             <Text style={styles.sectionSubtitle}>
               {displayedTransactions.length} entries for selected period
             </Text>
           </View>
 
-          {/* Quick Filter Pills */}
+          {/* Filter Pills */}
           <View style={styles.filterPills}>
             {(['ALL', 'INCOME', 'EXPENSE', 'DUE'] as const).map(filter => {
               const active = selectedFilter === filter;
@@ -240,10 +282,10 @@ export default function LedgerScreen() {
                 filter === 'ALL'
                   ? 'All'
                   : filter === 'INCOME'
-                  ? 'आयो'
+                  ? 'In'
                   : filter === 'EXPENSE'
-                  ? 'गयो'
-                  : 'बाँकी';
+                  ? 'Out'
+                  : 'Due';
               return (
                 <TouchableOpacity
                   key={filter}
@@ -267,11 +309,11 @@ export default function LedgerScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={16} color="#64748B" style={styles.searchIcon} />
+          <Ionicons name="search" size={15} color="#64748B" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search party, category, or bill #..."
-            placeholderTextColor="#64748B"
+            placeholder="Search by party, category, or bill..."
+            placeholderTextColor="#475569"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -282,15 +324,15 @@ export default function LedgerScreen() {
           )}
         </View>
 
-        {/* Daybook Transaction Stream */}
+        {/* Transaction List */}
         {displayedTransactions.length > 0 ? (
           displayedTransactions.map(tx => (
             <TransactionRow key={tx.id} transaction={tx} />
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={38} color="#24324D" />
-            <Text style={styles.emptyTitle}>कुनै कारोबार भेटिएन (No Transactions)</Text>
+            <Ionicons name="receipt-outline" size={36} color="#1E293B" />
+            <Text style={styles.emptyTitle}>No Transactions Found</Text>
             <Text style={styles.emptySubtitle}>
               Tap the buttons above to record an income or expense entry.
             </Text>
@@ -315,17 +357,17 @@ const styles = StyleSheet.create({
   overdueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 14,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 12,
     padding: 12,
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   overdueIconWrap: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     backgroundColor: '#EF4444',
     justifyContent: 'center',
@@ -341,21 +383,17 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
   },
   overdueSubtitle: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#F87171',
-    marginTop: 2,
+    marginTop: 1,
   },
   heroCardContainer: {
     marginHorizontal: 16,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: 'rgba(30, 41, 59, 0.7)',
     marginVertical: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
   },
   heroCardGradient: {
     padding: 18,
@@ -367,9 +405,9 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 1,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.2,
     marginBottom: 4,
   },
   heroMainAmount: {
@@ -381,7 +419,6 @@ const styles = StyleSheet.create({
   netStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -393,7 +430,7 @@ const styles = StyleSheet.create({
   },
   heroDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginVertical: 14,
   },
   heroFlowRow: {
@@ -411,7 +448,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -419,7 +456,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -442,8 +479,8 @@ const styles = StyleSheet.create({
   },
   flowVerticalDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginHorizontal: 8,
   },
   quickActionRow: {
@@ -455,42 +492,34 @@ const styles = StyleSheet.create({
   },
   gotCashButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#10B981',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
   gaveCashButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#EF4444',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
   actionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     gap: 8,
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 13,
   },
   receivableQuickCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0D1322',
+    backgroundColor: '#0C1220',
     marginHorizontal: 16,
     marginVertical: 6,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#1E293B',
     padding: 12,
@@ -499,12 +528,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 8,
   },
   rqIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -524,7 +555,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   rqAmount: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#F59E0B',
   },
@@ -556,7 +587,7 @@ const styles = StyleSheet.create({
     borderColor: '#1E293B',
   },
   miniPill: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 6,
   },
@@ -575,8 +606,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0D1322',
-    borderRadius: 12,
+    backgroundColor: '#0C1220',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginHorizontal: 16,
